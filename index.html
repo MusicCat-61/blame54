@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Сайт славы @Blame54 — Галерея легендарных сообщений</title>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'></text></svg>" />
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="header-content">
+                <h1>Сайт славы @Blame54</h1>
+                <span class="badge">Любитель поняшек</span>
+            </div>
+			
+			
+            <div class="header-info">
+                <span id="imageCount" class="count-badge">Загрузка...</span>
+            </div>
+        </header>
+		
+		<div class="hero-image">
+            <img src="main.jpg" alt="Сайт славы @Blame54" />
+        </div>
+
+        <main class="gallery-container">
+            <div id="galleryGrid" class="gallery-grid"></div>
+            <div id="loadingState" class="loading-state">
+                <div class="spinner"></div>
+                <p>Загружаем картинки...</p>
+            </div>
+            <div id="emptyState" class="empty-state hidden">
+                <span class="empty-icon">📁</span>
+                <p>Нет изображений в папке <code>/images/</code></p>
+                <p class="hint">Добавьте картинки в репозиторий в папку <code>images</code></p>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <p>© 2026 · Сайт славы @Blame54 · ВОТ ВОТ, МНЕ НУЖЕН САЙТ СЛАВЫ</p>
+        </footer>
+    </div>
+
+    <div id="modal" class="modal hidden">
+        <span class="modal-close" id="modalClose">&times;</span>
+        <img class="modal-content" id="modalImage" alt="Увеличенное изображение" />
+        <div class="modal-caption" id="modalCaption"></div>
+        <div class="modal-nav">
+            <button id="prevImage" class="nav-btn">◀</button>
+            <button id="nextImage" class="nav-btn">▶</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
