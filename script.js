@@ -28,10 +28,15 @@
      * Загрузка списка изображений из папки images
      */
     async function loadImages() {
+        console.log('[Gallery] Начинаем загрузку...');
+        
         try {
             // Определяем владельца и репозиторий из URL GitHub Pages
             const repoInfo = getRepoInfo();
+            console.log('[Gallery] repoInfo:', repoInfo);
+            
             if (!repoInfo) {
+                console.error('[Gallery] Не удалось определить репозиторий');
                 showError('Не удалось определить репозиторий');
                 return;
             }
@@ -40,30 +45,48 @@
             
             // Запрос к GitHub API для получения содержимого папки images
             const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/images`;
+            console.log('[Gallery] Запрашиваем URL:', apiUrl);
+            
             const response = await fetch(apiUrl, {
                 headers: { 'Accept': 'application/vnd.github.v3+json' }
             });
 
+            console.log('[Gallery] Статус ответа:', response.status);
+            
             if (!response.ok) {
                 if (response.status === 404) {
+                    console.warn('[Gallery] Папка images не найдена (404)');
                     showEmpty();
                 } else {
+                    console.error('[Gallery] Ошибка API:', response.status);
                     showError(`Ошибка API: ${response.status}`);
                 }
                 return;
             }
 
             const data = await response.json();
+            console.log('[Gallery] Получено файлов:', data.length);
+            console.log('[Gallery] Первые 3 файла:', data.slice(0, 3));
             
             // Фильтруем только файлы-изображения
             const imageFiles = data
-                .filter(item => item.type === 'file') // только файлы
+                .filter(item => {
+                    const isFile = item.type === 'file';
+                    console.log(`[Gallery] ${item.name}: type=${item.type}, isFile=${isFile}`);
+                    return isFile;
+                })
                 .filter(item => {
                     const ext = '.' + item.name.split('.').pop().toLowerCase();
-                    return IMAGE_EXTENSIONS.includes(ext);
+                    const isImage = IMAGE_EXTENSIONS.includes(ext);
+                    console.log(`[Gallery] ${item.name}: ext=${ext}, isImage=${isImage}`);
+                    return isImage;
                 });
 
+            console.log('[Gallery] Найдено изображений:', imageFiles.length);
+            console.log('[Gallery] Имена изображений:', imageFiles.map(f => f.name));
+
             if (imageFiles.length === 0) {
+                console.warn('[Gallery] Изображений не найдено');
                 showEmpty();
                 return;
             }
@@ -78,11 +101,12 @@
                 index: index
             }));
 
+            console.log('[Gallery] Успешно загружено', images.length, 'изображений');
             renderGallery();
 
         } catch (error) {
-            console.error('Ошибка загрузки:', error);
-            showError('Ошибка загрузки изображений');
+            console.error('[Gallery] Исключение при загрузке:', error);
+            showError('Ошибка загрузки изображений: ' + error.message);
         }
     }
 
@@ -91,21 +115,33 @@
      */
     function getRepoInfo() {
         const url = window.location.href;
+        console.log('[Gallery] Текущий URL:', url);
+        
         // Формат: https://username.github.io/repo/ или https://username.github.io/
         const match = url.match(/https?:\/\/([^.]+)\.github\.io\/([^\/]+)/);
+        console.log('[Gallery] Результат match:', match);
+        
         if (match) {
             return {
                 owner: match[1],
                 repo: match[2] || ''
             };
         }
-        return null;
+        
+        // fallback: если локально, пробуем использовать MusicCat-61/blame54
+        console.warn('[Gallery] Не удалось определить из URL, используем fallback');
+        return {
+            owner: 'MusicCat-61',
+            repo: 'blame54'
+        };
     }
 
     /**
      * Отрисовка галереи
      */
     function renderGallery() {
+        console.log('[Gallery] Отрисовка галереи, изображений:', images.length);
+        
         loadingState.classList.add('hidden');
         emptyState.classList.add('hidden');
 
@@ -127,6 +163,7 @@
             
             // Если картинка не загрузилась
             imgEl.onerror = function() {
+                console.warn('[Gallery] Не удалось загрузить:', img.url);
                 this.style.display = 'none';
                 const fallback = document.createElement('div');
                 fallback.style.cssText = `
@@ -138,6 +175,10 @@
                 `;
                 fallback.textContent = '🖼️';
                 this.parentNode.prepend(fallback);
+            };
+
+            imgEl.onload = function() {
+                console.log('[Gallery] Загружено:', img.name);
             };
 
             const overlay = document.createElement('div');
@@ -159,12 +200,15 @@
             item.addEventListener('click', () => openModal(index));
             galleryGrid.appendChild(item);
         });
+        
+        console.log('[Gallery] Отрисовка завершена');
     }
 
     /**
      * Показ пустого состояния
      */
     function showEmpty() {
+        console.warn('[Gallery] Показ пустого состояния');
         loadingState.classList.add('hidden');
         emptyState.classList.remove('hidden');
         imageCount.textContent = '0 изображений';
@@ -174,6 +218,7 @@
      * Показ ошибки
      */
     function showError(message) {
+        console.error('[Gallery] Ошибка:', message);
         loadingState.classList.add('hidden');
         emptyState.classList.remove('hidden');
         const p = emptyState.querySelector('p');
@@ -229,6 +274,12 @@
     });
 
     // ===== ЗАПУСК =====
-    loadImages();
+    console.log('[Gallery] Инициализация...');
+    // Ждём, пока DOM полностью загрузится
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', loadImages);
+    } else {
+        loadImages();
+    }
 
 })();
