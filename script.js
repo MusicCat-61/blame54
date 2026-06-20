@@ -145,7 +145,7 @@
         loadingState.classList.add('hidden');
         emptyState.classList.add('hidden');
 
-        imageCount.textContent = `${images.length} изображений 🖼️`;
+        imageCount.textContent = `Картинок: ${images.length}`;
 
         // Очищаем сетку
         const items = galleryGrid.querySelectorAll('.gallery-item');
@@ -211,7 +211,7 @@
         console.warn('[Gallery] Показ пустого состояния');
         loadingState.classList.add('hidden');
         emptyState.classList.remove('hidden');
-        imageCount.textContent = '0 изображений';
+        imageCount.textContent = 'Картинок: 0';
     }
 
     /**
