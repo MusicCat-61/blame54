@@ -1,7 +1,11 @@
+/**
+ * Сайт славы @Blame54 — Галерея поняшек
+ * Загружает реальный список изображений через GitHub API
+ */
+
 (function () {
     'use strict';
 
-    const IMAGES_PATH = './images/';
     const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg', '.avif'];
 
     const galleryGrid = document.getElementById('galleryGrid');
@@ -18,47 +22,69 @@
     let images = [];
     let currentIndex = 0;
 
-    async function fetchImageList() {
+    async function loadImages() {
         try {
+            // Определяем владельца и репозиторий из URL
             const repoInfo = getRepoInfo();
-            if (repoInfo) {
-                const { owner, repo, path } = repoInfo;
-                const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path}images`;
+            if (!repoInfo) {
+                showError('Не удалось определить репозиторий');
+                return;
+            }
 
-                const response = await fetch(apiUrl, {
-                    headers: { 'Accept': 'application/vnd.github.v3+json' }
+            const { owner, repo, path } = repoInfo;
+            // Запрашиваем содержимое папки images через GitHub API
+            const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path}images`;
+
+            const response = await fetch(apiUrl, {
+                headers: {
+                    'Accept': 'application/vnd.github.v3+json'
+                }
+            });
+
+            if (!response.ok) {
+                if (response.status === 404) {
+                    showEmpty();
+                } else {
+                    showError(`Ошибка API: ${response.status}`);
+                }
+                return;
+            }
+
+            const data = await response.json();
+            
+            // Фильтруем только файлы-изображения
+            const imageFiles = data
+                .filter(item => item.type === 'file')
+                .filter(item => {
+                    const ext = '.' + item.name.split('.').pop().toLowerCase();
+                    return IMAGE_EXTENSIONS.includes(ext);
                 });
 
-                if (response.ok) {
-                    const data = await response.json();
-                    const imageFiles = data
-                        .filter(item => item.type === 'file')
-                        .filter(item => {
-                            const ext = '.' + item.name.split('.').pop().toLowerCase();
-                            return IMAGE_EXTENSIONS.includes(ext);
-                        });
-
-                    if (imageFiles.length > 0) {
-                        imageFiles.sort((a, b) => a.name.localeCompare(b.name));
-                        images = imageFiles.map((file, index) => ({
-                            name: file.name,
-                            url: file.download_url,
-                            index: index
-                        }));
-                        renderGallery();
-                        return;
-                    }
-                }
+            if (imageFiles.length === 0) {
+                showEmpty();
+                return;
             }
-            await fallbackLoadImages();
+
+            // Сортируем по имени
+            imageFiles.sort((a, b) => a.name.localeCompare(b.name));
+
+            images = imageFiles.map((file, index) => ({
+                name: file.name,
+                url: file.download_url,
+                index: index
+            }));
+
+            renderGallery();
+
         } catch (error) {
-            console.warn('Ошибка загрузки через API, пробуем fallback:', error);
-            await fallbackLoadImages();
+            console.error('Ошибка загрузки:', error);
+            showError('Ошибка загрузки изображений');
         }
     }
 
     function getRepoInfo() {
         const url = window.location.href;
+        // Формат: https://username.github.io/repo/ или https://username.github.io/
         const match = url.match(/https?:\/\/([^.]+)\.github\.io\/([^\/]+)/);
         if (match) {
             return {
@@ -67,46 +93,17 @@
                 path: match[2] ? `${match[2]}/` : ''
             };
         }
+        // Если локально — пробуем другой способ
         return null;
-    }
-
-    async function fallbackLoadImages() {
-        const commonNames = ['image', 'photo', 'pic', 'img', 'gallery', 'pony', 'ponies', '1', '2', '3', '4', '5'];
-        const extensions = ['.jpg', '.jpeg', '.png', '.webp'];
-        let loaded = [];
-
-        for (const name of commonNames) {
-            for (const ext of extensions) {
-                const url = `${IMAGES_PATH}${name}${ext}`;
-                try {
-                    const response = await fetch(url, { method: 'HEAD' });
-                    if (response.ok) {
-                        loaded.push({ name: `${name}${ext}`, url: url, index: loaded.length });
-                        break;
-                    }
-                } catch {}
-            }
-        }
-
-        if (loaded.length > 0) {
-            images = loaded;
-            renderGallery();
-        } else {
-            showEmpty();
-        }
     }
 
     function renderGallery() {
         loadingState.classList.add('hidden');
         emptyState.classList.add('hidden');
 
-        if (images.length === 0) {
-            showEmpty();
-            return;
-        }
+        imageCount.textContent = `${images.length} изображений 🖼️`;
 
-        imageCount.textContent = `Картинок: ${images.length} `;
-
+        // Очищаем сетку
         const items = galleryGrid.querySelectorAll('.gallery-item');
         items.forEach(el => el.remove());
 
@@ -119,6 +116,21 @@
             imgEl.src = img.url;
             imgEl.alt = img.name;
             imgEl.loading = 'lazy';
+            
+            // Если картинка не загрузилась
+            imgEl.onerror = function() {
+                this.style.display = 'none';
+                const fallback = document.createElement('div');
+                fallback.style.cssText = `
+                    width: 100%; height: 100%;
+                    display: flex; align-items: center; justify-content: center;
+                    background: #151520;
+                    color: #505060;
+                    font-size: 48px;
+                `;
+                fallback.textContent = '🖼️';
+                this.parentNode.prepend(fallback);
+            };
 
             const overlay = document.createElement('div');
             overlay.className = 'item-overlay';
@@ -127,7 +139,12 @@
             nameSpan.className = 'item-name';
             nameSpan.textContent = img.name;
 
+            const indexSpan = document.createElement('span');
+            indexSpan.className = 'item-index';
+            indexSpan.textContent = `#${index + 1}`;
+
             overlay.appendChild(nameSpan);
+            overlay.appendChild(indexSpan);
             item.appendChild(imgEl);
             item.appendChild(overlay);
 
@@ -139,9 +156,18 @@
     function showEmpty() {
         loadingState.classList.add('hidden');
         emptyState.classList.remove('hidden');
-        imageCount.textContent = 'Картинок: 0';
+        imageCount.textContent = '0 изображений';
     }
 
+    function showError(message) {
+        loadingState.classList.add('hidden');
+        emptyState.classList.remove('hidden');
+        emptyState.querySelector('p').textContent = `❌ ${message}`;
+        emptyState.querySelector('.hint').textContent = 'Проверьте, что папка images существует и содержит изображения';
+        imageCount.textContent = 'Ошибка';
+    }
+
+    // ===== МОДАЛЬНОЕ ОКНО =====
     function openModal(index) {
         currentIndex = index;
         const img = images[currentIndex];
@@ -156,13 +182,16 @@
     function closeModal() {
         modal.classList.add('hidden');
         document.body.style.overflow = '';
+        modalImage.src = '';
     }
 
     function navigateModal(direction) {
+        if (images.length === 0) return;
         const newIndex = (currentIndex + direction + images.length) % images.length;
         openModal(newIndex);
     }
 
+    // ===== СОБЫТИЯ =====
     modalClose.addEventListener('click', closeModal);
     modal.addEventListener('click', (e) => {
         if (e.target === modal) closeModal();
@@ -173,8 +202,17 @@
         if (e.key === 'ArrowRight' && !modal.classList.contains('hidden')) navigateModal(1);
     });
 
-    prevBtn.addEventListener('click', (e) => { e.stopPropagation(); navigateModal(-1); });
-    nextBtn.addEventListener('click', (e) => { e.stopPropagation(); navigateModal(1); });
+    prevBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        navigateModal(-1);
+    });
 
-    fetchImageList();
+    nextBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        navigateModal(1);
+    });
+
+    // ===== ЗАПУСК =====
+    loadImages();
+
 })();
